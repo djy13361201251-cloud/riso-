@@ -1,0 +1,6 @@
+{
+  "name": "Riso Processor",
+  "description": "A brutalist-style digital Risograph effect generator. Upload photos, adjust ink layers, halftone patterns, and noise, then export high-resolution results.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

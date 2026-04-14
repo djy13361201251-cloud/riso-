@@ -1,0 +1,35 @@
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Anton", sans-serif;
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  --color-brutal-black: #000000;
+  --color-brutal-white: #ffffff;
+  --color-brutal-accent: #ff3366;
+  --color-brutal-accent-2: #00ffcc;
+}
+
+body {
+  font-family: "Inter", sans-serif;
+  background-color: #e5e5e5;
+  color: #000000;
+}
+
+/* Custom scrollbar for brutalist feel */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+::-webkit-scrollbar-track {
+  background: #ffffff;
+  border-left: 2px solid #000;
+}
+::-webkit-scrollbar-thumb {
+  background: #000000;
+}
+::-webkit-scrollbar-corner {
+  background: #ffffff;
+}
