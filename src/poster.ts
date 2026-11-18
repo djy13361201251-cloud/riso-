@@ -1,11 +1,11 @@
-import {createRenderer, grain, presetParams, RisoParams, sizeFor} from './riso';
+import {createRenderer, DEFAULT_PARAMS, grain, PRINT_PALETTE, RisoParams, sizeFor} from './riso';
 
 export type LayoutId = 'editorial' | 'edition' | 'duet' | 'contact' | 'collage';
 export type InkMode = 'duo' | 'first' | 'second' | 'original';
 export type PosterAsset = {id:string; name:string; el:HTMLCanvasElement; w:number; h:number; thumbnail:string};
 export type Slot = {assetId:string|null; x:number; y:number; zoom:number; ink:InkMode};
 export type Frame = {x:number; y:number; w:number; h:number; rotate?:number};
-export type PosterSettings = {layout:LayoutId; ratio:'3:4'|'4:5'|'1:1'; title:string; subtitle:string; credit:string; edition:string; masthead:string; body:string; accent:string; photoOpacity:number; type:'editorial'|'sans'|'serif'; shapes:boolean; marks:boolean};
+export type PosterSettings = {layout:LayoutId; ratio:'3:4'|'4:5'|'1:1'; title:string; subtitle:string; credit:string; edition:string; masthead:string; body:string; accent:string; type:'editorial'|'sans'|'serif'; shapes:boolean; marks:boolean};
 export const LAYOUTS = [
   {id:'editorial',name:'套印刊物',note:'跨栏细字 / 三色叠印'},
   {id:'edition',name:'封面研究',note:'大标题 / 主次构图'},
@@ -13,13 +13,13 @@ export const LAYOUTS = [
   {id:'contact',name:'四格印样',note:'矩阵 / 图像节奏'},
   {id:'collage',name:'错位拼贴',note:'叠放 / 几何套色'},
 ] as const;
-export const DEFAULT_POSTER:PosterSettings = {layout:'editorial',ratio:'3:4',title:'A Place\nfor New\nIdeas.',subtitle:'Between image, colour & paper.',credit:'AN EXERCISE IN OVERPRINT',edition:'PRINT LAB / NO. 01',masthead:'Print\nSomething\nNew.',accent:'#f4e328',photoOpacity:.68,type:'editorial',shapes:true,marks:true,body:[
+export const DEFAULT_POSTER:PosterSettings = {layout:'editorial',ratio:'3:4',title:'A Place\nfor New\nIdeas.',subtitle:'Between image, colour & paper.',credit:'AN EXERCISE IN OVERPRINT',edition:'PRINT LAB / NO. 01',masthead:'Print\nSomething\nNew.',accent:PRINT_PALETTE.yellow,type:'editorial',shapes:true,marks:true,body:[
   '01 / A SECOND LOOK\nAn image is never quite finished. Move closer and a familiar object becomes a shape; move away and its colour becomes a rhythm. These pages collect small observations and let them meet on paper.\n\nStart with something ordinary. A folded ribbon, a reflection, the curve of a stem. A change in scale can turn a detail into the main event. The photograph stays the same. The way we see it does not.',
   '02 / COLOUR IN COMMON\nCyan, pink and yellow are printed as separate thoughts. Where they overlap, another colour appears. The page carries the memory of each layer: a soft edge, a darker intersection, a little space where the paper shines through.\n\nA limited palette leaves room for unexpected relationships. The most interesting colour may be the one that was never chosen, but happened between two others.',
   '03 / ROOM FOR CHANCE\nPerfect alignment is only one possibility. A small shift can make a quiet edge vibrate. A repeated image can feel entirely new when its frame changes. A line of type can move between pictures and connect them.\n\nComposition is a conversation between what is placed and what is left open. Look at the gaps. Give the image enough room to breathe, and the words enough room to become an image.',
   '04 / ON PAPER\nThis is a study in seeing, making and looking again. Collect fragments. Try a different order. Allow a colour to cross a boundary. Follow the useful accident, then make a deliberate choice.\n\nThere is no final arrangement, only a version worth keeping. A small edition of something that did not exist a moment ago. Image, colour, type and paper: four simple ingredients, many possible outcomes.'
 ].join('\n---\n')};
-export function editorialParams(){const p=presetParams(1);p.bgColor='#faf9f3';p.ink1.color='#29c5e8';p.ink2.color='#ff75bb';p.contrast=1.45;p.gamma=.85;p.ink1.density=1.3;p.ink2.density=1.15;p.noiseLevel=2;p.offsetX=1.2;return p;}
+export function editorialParams(){return structuredClone(DEFAULT_PARAMS);}
 export const blankSlots = ():Slot[] => Array.from({length:4},()=>({assetId:null,x:0,y:0,zoom:1,ink:'duo'}));
 export function posterSize(ratio:PosterSettings['ratio'],longest:number):[number,number]{const r=ratio==='3:4'?.75:ratio==='4:5'?.8:1;return [Math.round(longest*r),longest];}
 export function posterFrames(layout:LayoutId,w:number,h:number):Frame[]{
@@ -96,7 +96,7 @@ export function createPosterRenderer(){
       ctx.save();ctx.translate(frame.x+frame.w/2,frame.y+frame.h/2);ctx.rotate((frame.rotate||0)*Math.PI/180);ctx.translate(-frame.w/2,-frame.h/2);
       if(settings.layout==='collage'){ctx.fillStyle=params.bgColor;ctx.fillRect(-7*unit,-7*unit,frame.w+14*unit,frame.h+14*unit);}
       ctx.beginPath();ctx.rect(0,0,frame.w,frame.h);ctx.clip();
-      if(editorial){ctx.globalAlpha=settings.photoOpacity;ctx.globalCompositeOperation='multiply';}
+      if(editorial){ctx.globalCompositeOperation='multiply';if(slot.ink==='original')ctx.globalAlpha=params.inkOpacity;}
       if(asset){
         let bitmap:HTMLCanvasElement=asset.el;
         if(slot.ink!=='original'){

@@ -1,13 +1,12 @@
 import React,{useEffect,useRef,useState} from 'react';
-import {PRESETS,presetParams,RisoParams} from '../riso';
+import {PRESETS,presetParams,RisoParams,PRINT_PALETTE,matchesPreset} from '../riso';
 import {blankSlots,createPosterRenderer,cropMetrics,DEFAULT_POSTER,editorialParams,Frame,LAYOUTS,LayoutId,makePosterAsset,PosterAsset,posterFrames,PosterSettings,posterSize,Slot} from '../poster';
 
 type Source={el:CanvasImageSource;w:number;h:number;name:string;kind:string};
 type Props={active:boolean;source:Source|null;params:RisoParams;onParams:(p:RisoParams)=>void};
 const clamp=(v:number)=>Math.max(-1,Math.min(1,v));
 
-export default function PosterComposer({active,source,params:sourceParams}:Props){
-  const [params,onParams]=useState<RisoParams>(editorialParams);
+export default function PosterComposer({active,source,params,onParams}:Props){
   const [settings,setSettings]=useState<PosterSettings>(DEFAULT_POSTER),[assets,setAssets]=useState<PosterAsset[]>([]),[slots,setSlots]=useState(blankSlots),[selected,setSelected]=useState(0),[crop,setCrop]=useState(false),[status,setStatus]=useState('点选图片，调整裁切；或一次导入多张图片。'),[busy,setBusy]=useState(false),[result,setResult]=useState<{url:string;name:string}|null>(null);
   const canvas=useRef<HTMLCanvasElement>(null),paper=useRef<HTMLDivElement>(null),render=useRef<ReturnType<typeof createPosterRenderer>|null>(null),initialized=useRef(false),resultUrl=useRef(''),assetsRef=useRef(assets),busyRef=useRef(false),alive=useRef(true),drag=useRef<{pointer:number;index:number;clientX:number;clientY:number;x:number;y:number;overflowX:number;overflowY:number;rotate:number}|null>(null);
   assetsRef.current=assets;busyRef.current=busy;
@@ -78,19 +77,19 @@ export default function PosterComposer({active,source,params:sourceParams}:Props
       <div className="panel-title"><span>03 / 图片 {selected+1} 的取景</span><button onClick={()=>updateSlot({zoom:1,x:0,y:0})}>居中复位</button></div>
       <div className="slot-tabs" role="group" aria-label="选择图片格">{frames.map((_,i)=><button key={i} aria-pressed={selected===i} onClick={()=>setSelected(i)}>0{i+1}</button>)}</div>
       <label className="range"><span>图片缩放<output>{slot.zoom.toFixed(2)}×</output></span><input aria-label="拼图图片缩放" type="range" min="1" max="3" step=".01" value={slot.zoom} disabled={!chosen} onChange={e=>updateSlot({zoom:+e.target.value})}/></label>
-      {settings.layout==='editorial'&&<label className="range"><span>照片叠印浓度<output>{Math.round(settings.photoOpacity*100)}%</output></span><input aria-label="照片叠印浓度" type="range" min="0" max="1" step=".01" value={settings.photoOpacity} onChange={e=>setting('photoOpacity',+e.target.value)}/></label>}
+      <label className="range"><span>叠印浓度<output>{Math.round(params.inkOpacity*100)}%</output></span><input aria-label="海报叠印浓度" type="range" min="0" max="1" step=".01" value={params.inkOpacity} onChange={e=>onParams({...params,inkOpacity:+e.target.value})}/></label>
       <label className="texture-mode">此格用墨<select aria-label="此格用墨" value={slot.ink} onChange={e=>updateSlot({ink:e.target.value as Slot['ink']})}><option value="duo">双墨套印</option><option value="first">只用墨色 1</option><option value="second">只用墨色 2</option><option value="original">保留原片</option></select></label>
       <div className="asset-heading"><span>素材库 {assets.length}/6 · 点选替换</span><button disabled={!chosen} onClick={removeAsset}>删除所选素材</button></div>
       <div className="asset-library">{assets.map((a,i)=><button key={a.id} title={a.name} aria-label={`使用素材 ${i+1}：${a.name}`} aria-pressed={slot.assetId===a.id} onClick={()=>updateSlot({assetId:a.id,x:0,y:0,zoom:1})}><img src={a.thumbnail} alt=""/><span>{String(i+1).padStart(2,'0')}</span></button>)}{assets.length<6&&<label className="asset-add" title="导入更多照片">＋<input type="file" accept="image/*" multiple aria-label="添加更多拼图照片" onChange={e=>{importFiles(e.target.files);e.target.value='';}}/></label>}</div>
       <p className="hint">一张照片也能重复取景。选中图片格后，开启「拖动裁切」调整画面。</p>
-      <div className="panel-title"><span>04 / 专色与印刷细节</span><button onClick={()=>onParams(structuredClone(sourceParams))}>复制图像参数</button></div>
-      <button className="editorial-palette" onClick={()=>{onParams(editorialParams());setting('accent','#f4e328');}}><i style={{background:'#29c5e8'}}/><i style={{background:'#ff75bb'}}/><i style={{background:'#f4e328'}}/><span>青 / 粉 / 黄 · 刊物套色</span></button>
-      <div className="poster-palettes">{PRESETS.map((p,i)=><button key={p.name} title={p.note} onClick={()=>onParams(presetParams(i))}><i style={{background:p.colors[0]}}/><i style={{background:p.colors[1]}}/><span>{p.name}</span></button>)}</div>
+      <div className="panel-title"><span>04 / 专色与印刷细节</span><span className="minor">两种模式同步</span></div>
+      <button className="editorial-palette" onClick={()=>{onParams(editorialParams());setting('accent',PRINT_PALETTE.yellow);}}><i style={{background:PRINT_PALETTE.cyan}}/><i style={{background:PRINT_PALETTE.pink}}/><i style={{background:PRINT_PALETTE.yellow}}/><span>青 / 粉 / 黄 · 刊物套色</span></button>
+      <div className="poster-palettes">{PRESETS.map((p,i)=><button key={p.name} title={p.note} aria-pressed={matchesPreset(params,i)} onClick={()=>onParams(presetParams(i))}><i style={{background:p.colors[0]}}/><i style={{background:p.colors[1]}}/><span>{p.name}</span></button>)}</div>
       <div className="colors poster-colors">{[['纸张',params.bgColor],['墨色 1',params.ink1.color],['墨色 2',params.ink2.color]].map(([label,value],i)=><label key={label}>{label}<input type="color" aria-label={'海报'+label} value={value} onChange={e=>{const p=structuredClone(params);if(i===0)p.bgColor=e.target.value;else if(i===1)p.ink1.color=e.target.value;else{p.ink2.color=e.target.value;p.ink2.enabled=true;}onParams(p);}}/></label>)}</div>
       {settings.layout==='editorial'&&<label className="accent-ink">图形专色<input aria-label="图形第三专色" type="color" value={settings.accent} onChange={e=>setting('accent',e.target.value)}/></label>}
       <label className="check"><input type="checkbox" checked={settings.shapes} onChange={e=>setting('shapes',e.target.checked)}/>几何图形 / 专色叠印</label>
       <label className="check"><input type="checkbox" checked={settings.marks} onChange={e=>setting('marks',e.target.checked)}/>色标与套准标记</label>
-      <p className="hint">拼图的纸墨独立调整，也能复制图像模式的参数。PNG 不包含选框与操作界面。</p>
+      <p className="hint">与图像、视频共用纸色、油墨与叠印浓度。第三专色用于海报图形，PNG 不包含选框与操作界面。</p>
     </fieldset><footer>RISO / COMPOSE<br/>照片、文字、油墨，一起成形。</footer></aside>
   </main>;
 }
