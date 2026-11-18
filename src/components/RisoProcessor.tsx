@@ -1,10 +1,13 @@
 import React,{useState,useRef,useEffect} from 'react';
 import {DEFAULT_PARAMS,PRESETS,createRenderer,sizeFor,RisoParams,presetParams} from '../riso';
+import PosterComposer from './PosterComposer';
 type Media={kind:'image'|'video',el:HTMLImageElement|HTMLVideoElement,url:string,name:string,w:number,h:number,duration:number};
 const clone=(p:RisoParams)=>JSON.parse(JSON.stringify(p));
 const initial=()=>{try{const p=JSON.parse(localStorage.getItem('riso-v4')||'null');if(p&&p.version===4&&p.params?.ink1?.dotSize>=1&&p.params?.ink2?.dotSize>=1&&p.params?.baseLayer)return {...clone(DEFAULT_PARAMS),...p.params,splitPosition:100};}catch{}return clone(DEFAULT_PARAMS)};
 function seek(v:HTMLVideoElement,t:number){return new Promise<void>((resolve,reject)=>{if(Math.abs(v.currentTime-t)<.015&&v.readyState>=2){resolve();return;}const timer=setTimeout(()=>done(new Error('视频定位超时，请换用 H.264 MP4。')),8000);const done=(err?:Error)=>{clearTimeout(timer);v.removeEventListener('seeked',ok);v.removeEventListener('error',bad);err?reject(err):resolve()};const ok=()=>done(),bad=()=>done(new Error('视频解码失败'));v.addEventListener('seeked',ok,{once:true});v.addEventListener('error',bad,{once:true});v.currentTime=t;});}
 export default function RisoProcessor(){
+ const [mode,setMode]=useState<'image'|'poster'>(()=>location.hash==='#poster'?'poster':'image');
+ const switchMode=(next:'image'|'poster')=>{setMode(next);window.history.replaceState(null,'',location.pathname+location.search+(next==='poster'?'#poster':''));};
  const [params,setParams]=useState<RisoParams>(initial),[media,setMedia]=useState<Media|null>(null),[status,setStatus]=useState('正在准备示例…'),[busy,setBusy]=useState(false),[videoExport,setVideoExport]=useState(false),[progress,setProgress]=useState(0),[playing,setPlaying]=useState(false),[time,setTime]=useState(0),[start,setStart]=useState(0),[length,setLength]=useState(6),[result,setResult]=useState<{url:string,name:string}|null>(null),[revision,setRevision]=useState(0);
  const canvas=useRef<HTMLCanvasElement>(null),renderer=useRef<ReturnType<typeof createRenderer>|null>(null),cancel=useRef(false),history=useRef<RisoParams[]>([]),loadId=useRef(0),busyRef=useRef(false),mediaRef=useRef<Media|null>(null),resultRef=useRef(''),paramsRef=useRef(params);
  paramsRef.current=params;mediaRef.current=media;busyRef.current=busy;
@@ -27,10 +30,11 @@ export default function RisoProcessor(){
  useEffect(()=>{renderer.current=createRenderer();load('./samples/still.jpg','静物研究 · AI 生成测试图','image');return()=>{loadId.current++;cancel.current=true;if(mediaRef.current?.kind==='video')(mediaRef.current.el as HTMLVideoElement).pause();if(mediaRef.current?.url.startsWith('blob:'))URL.revokeObjectURL(mediaRef.current.url);if(resultRef.current)URL.revokeObjectURL(resultRef.current);};},[]);
  useEffect(()=>{try{localStorage.setItem('riso-v4',JSON.stringify({version:4,params}));}catch{}},[params]);
  useEffect(()=>{
-  if(!media||busy)return;let frame=0,last=0;
+  if(!media||busy||mode!=='image')return;let frame=0,last=0;
   const draw=(now:number)=>{if(!canvas.current||!renderer.current)return;if(now-last>83||!playing){const [w,h]=sizeFor(media.w,media.h,media.kind==='video'?640:1000);renderer.current(canvas.current,media.el,w,h,params,params.splitPosition);if(media.kind==='video')setTime((media.el as HTMLVideoElement).currentTime);last=now;}if(playing)frame=requestAnimationFrame(draw);};
   draw(performance.now());return()=>cancelAnimationFrame(frame);
- },[media,params,playing,busy,revision]);
+ },[media,params,playing,busy,revision,mode]);
+ useEffect(()=>{if(mode==='poster'&&media?.kind==='video'){(media.el as HTMLVideoElement).pause();setPlaying(false);}},[mode,media]);
  useEffect(()=>{if(!media||media.kind!=='video')return;const v=media.el as HTMLVideoElement;const end=()=>setPlaying(false);v.addEventListener('ended',end);return()=>v.removeEventListener('ended',end)},[media]);
  useEffect(()=>{const hide=()=>{if(document.hidden){if(busyRef.current)cancel.current=true;else if(mediaRef.current?.kind==='video'){(mediaRef.current.el as HTMLVideoElement).pause();setPlaying(false);}}};document.addEventListener('visibilitychange',hide);return()=>document.removeEventListener('visibilitychange',hide)},[]);
  async function upload(file?:File){if(!file)return;if(!/^image\//.test(file.type)&&!/^video\//.test(file.type)){setStatus('请选择图片或视频文件。');return;}if(file.size>250*1024*1024){setStatus('素材超过 250 MB，请先压缩后重试。');return;}await load(URL.createObjectURL(file),file.name,file.type.startsWith('video')?'video':'image');}
@@ -56,8 +60,9 @@ export default function RisoProcessor(){
   }catch(e){setStatus((e as Error).message)}finally{v.pause();if(rec&&rec.state!=='inactive')rec.stop();stream?.getTracks().forEach(t=>t.stop());try{await seek(v,oldTime)}catch{}setBusy(false);setVideoExport(false);setRevision(x=>x+1);}
  }
  const range=(label:string,group:string,key:string,value:number,min:number,max:number,step=1)=><label className="range"><span>{label}<output>{Number(value.toFixed(2))}</output></span><input aria-label={label} type="range" min={min} max={max} step={step} value={value} onPointerDown={remember} onKeyDown={e=>{if(e.key.startsWith('Arrow'))remember()}} onChange={e=>update(group,key,+e.target.value)}/></label>;
- return <div className="studio"><header><a className="wordmark" href="./">RISO<br/>PROCESSOR<span>DIGITAL HALFTONE GENERATOR</span></a><span className="edition">IMAGE + MOTION · 03</span><label className="button upload">＋ 导入图片 / 视频<input aria-label="导入图片或视频" type="file" accept="image/*,video/*" disabled={busy} onChange={e=>{upload(e.target.files?.[0]);e.target.value=''}}/></label></header>
- <main><section className="workspace" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!busy)upload(e.dataTransfer.files[0]);}}>
+ return <div className="studio"><header><a className="wordmark" href="./">RISO<br/>PROCESSOR<span>DIGITAL HALFTONE GENERATOR</span></a><span className="edition">IMAGE + MOTION + POSTER</span>{mode==='image'&&<label className="button upload">＋ 导入图片 / 视频<input aria-label="导入图片或视频" type="file" accept="image/*,video/*" disabled={busy} onChange={e=>{upload(e.target.files?.[0]);e.target.value=''}}/></label>}</header>
+ <nav className="mode-switch" aria-label="创作模式"><button aria-pressed={mode==='image'} disabled={busy} onClick={()=>switchMode('image')}>图像与视频</button><button aria-pressed={mode==='poster'} disabled={busy} onClick={()=>switchMode('poster')}>海报拼图 <span>↗</span></button></nav>
+ <main className={mode==='image'?'':'is-hidden'}><section className="workspace" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(!busy)upload(e.dataTransfer.files[0]);}}>
  <div className="stage-label"><span>一张照片，也可以有油墨的触感。</span><span>{media?.kind==='video'?'MOTION STUDY':'PRINT STUDY'}</span></div>
  <div className="artboard"><div className="paper"><canvas ref={canvas} aria-label="Riso 效果预览"/>{params.splitPosition>0&&params.splitPosition<100&&!busy&&<i className="split-line" style={{left:(100-params.splitPosition)+'%'}}/>}</div></div>
  <div className="preview-tools"><label>原图<input aria-label="原图效果对比" type="range" min="0" max="100" value={params.splitPosition} disabled={busy} onChange={e=>update('global','splitPosition',+e.target.value)}/>效果</label><span>对比线不会进入导出</span></div>
@@ -73,7 +78,7 @@ export default function RisoProcessor(){
  <div className="panel-title"><span>03 / 带走作品</span></div>
  {media?.kind==='video'&&<><div className="clip"><label>起点 / 秒<input aria-label="片段起点" type="number" min="0" max={Math.max(0,media.duration-.1)} step=".1" value={start} onChange={e=>{setStart(Math.min(Math.max(0,+e.target.value),media.duration-.1));clearResult()}}/></label><label>时长 / 秒<input aria-label="片段时长" type="number" min=".1" max="15" step=".1" value={length} onChange={e=>{setLength(Math.min(15,Math.max(.1,+e.target.value)));clearResult()}}/></label></div><button className="primary" onClick={exportVideo}>导出动态效果 ↗</button><p className="hint">静音短片 · 最长 15 秒 · 最长边 640 px<br/>目标 12 fps，实际流畅度取决于设备。格式由浏览器决定；保留页面可见。</p></>}
  <button className={media?.kind==='video'?'secondary':'primary'} disabled={!media} onClick={png}>{media?.kind==='video'?'导出当前帧 PNG':'导出 PNG ↗'}</button><p className="hint">图片最长边 2400 px。导出始终为完整效果，不含界面及对比线。</p>
- </fieldset>{busy&&videoExport&&<button className="cancel" onClick={()=>cancel.current=true}>取消视频导出</button>}<footer>由戴静一制作<br/>把一种视觉语言，变成可调整的工具。</footer></aside></main></div>
+ </fieldset>{busy&&videoExport&&<button className="cancel" onClick={()=>cancel.current=true}>取消视频导出</button>}<footer>由戴静一制作<br/>把一种视觉语言，变成可调整的工具。</footer></aside></main><PosterComposer active={mode==='poster'} source={media} params={params} onParams={change}/></div>
 }
 
 function PresetPreview({media,index}:{media:Media|null,index:number}){const ref=useRef<HTMLCanvasElement>(null);useEffect(()=>{if(!media||!ref.current)return;const [w,h]=sizeFor(media.w,media.h,220);createRenderer()(ref.current,media.el,w,h,presetParams(index),100);},[media,index]);return <canvas ref={ref} aria-hidden="true"/>;}
