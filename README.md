@@ -1,20 +1,42 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Riso Processor · Image + Motion
 
-# Run and deploy your AI Studio app
+浏览器本地图片与静音短视频套印工具。保留原版薄荷绿、黑白参数面板与灰色画布。
 
-This contains everything you need to run your app locally.
+## 运行
 
-View your app in AI Studio: https://ai.studio/apps/2280eeac-b4cb-4978-acb6-03991ec34ea1
+Node.js 20+，`npm install`，`npm run dev`。生产构建 `npm run build`，输出 `dist/`，相对资源路径可部署到子目录。无需 API Key。
 
-## Run Locally
+## 功能
 
-**Prerequisites:**  Node.js
+- 六套完整风格预设及当前素材效果缩略图：蓝橙影集、荧光粉刊、赤蓝海报、黑墨档案、朱砂单色、紫黄套印。
+- 细颗粒与规则网点两种渲染；冷暖分色与明暗分色由预设控制；墨色、对比、网点、底图、套印偏移可调整。
+- 图片/视频导入，示例素材，原图效果对照，参数撤销（最多 30 步）与恢复默认；参数保存到本地浏览器。
+- 图片/视频当前帧导出 PNG，最长边 2400 px，不放大小图，始终不含对比界面。
+- 视频预览与定位；截取最长 15 秒的静音片段，最长边 640 px，目标 12 fps，性能受设备影响。
+- 优先浏览器原生 H.264 MP4，其次 WebM。不能承诺所有手机浏览器都支持编码；不支持时给出提示。
+- 视频导出可取消，切到后台自动取消，不交付半成品。完成后显示下载链接，避免浏览器阻止自动下载。
+- 图片最多 5000 万像素、文件最多 250 MB；失败保留当前素材。
 
+视频不保留原声；不支持批处理、云端处理、后台导出或专业印刷色彩校准。效果为屏幕模拟。
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 示例与参考
+
+`public/samples/still.jpg` 为本次 AI 生成静物输入；`motion.mp4` 由其制作推近测试片段。不是客户作品或实拍案例。
+
+预设研究参考：
+- https://risottostudio.com/pages/printing-faq
+- https://risolvestudio.com/pages/print-with-us
+- https://www.behance.net/gallery/88874005/Society4odds-Zine
+
+参考作品不打包、不冒充本项目输出。
+
+## 验证（2026-11-18）
+
+- TypeScript 与生产构建通过。
+- 桌面 Chromium：图片预设、对比、PNG 下载；分屏状态导出仍为完整效果。
+- 视频：6 秒示例预览、MP4/WebM 导出、取消再导出；下载成品使用 FFmpeg 解码验证，实际约 10 fps。
+- 无效图片输入：提示错误，保留原素材。
+- 390×844 手机视口：纵向布局，无横向溢出，预设和导出入口；2 秒视频导出通过。属于桌面浏览器窄屏验证，非 iPhone 真机验收。
+- 真实浏览器画面录制与用户原版 43 秒展示视频分开展示。
+
+主要代码：`src/riso.ts` 渲染与预设；`src/components/RisoProcessor.tsx` 工作流与导出；`src/index.css` 原版视觉与响应式适配。
